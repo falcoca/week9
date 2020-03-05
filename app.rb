@@ -17,6 +17,7 @@ after { puts; }                                                                 
 
 events_table = DB.from(:events)
 rsvps_table = DB.from(:rsvps)
+users_table = DB.from(:users)
 
 get "/" do
     puts "params: #{params}"
@@ -51,8 +52,7 @@ get "/events/:id/rsvps/create" do
     # Step 2: insert a row in RSVPs table with RSVP form data
     rsvps_table.insert(
         event_id: @event[:id],
-        name: params["name"],
-        email: params["email"],
+        user_id: session["user_id"],
         comments: params["comments"],
         going: params["going"]    
     )
@@ -63,9 +63,15 @@ get "/users/new" do
     view "new_user"
 end
 
-get "/users/create" do
+post "/users/create" do
     puts "params: #{params}"
 
+# Step 2: insert a row in RSVPs table with RSVP form data
+    users_table.insert(
+        name: params["name"],
+        email: params["email"],
+        password: params["password"],
+    )
     view "create_user"
 end
 
@@ -73,10 +79,22 @@ get "/logins/new" do
     view "new_login"
 end
 
-get "/logins/create" do
+post "/logins/create" do
     puts "params: #{params}"
  
-    view "create_login"
+    #Step 1: is there a user with the params["email"] 
+    @user = users_table.where(email: params["email"]).to_a[0]
+    if @user
+        #step 2: if there is, does the password match?   
+        if @user[:password] == params["password"]
+            # know a user is logged in
+            session["user_id"] = @user[:id]
+            view "create_login"
+        else
+            view "create_login_failed"
+        end
+    else view "create_login_failed"
+    end
 end
 
 get "/logout" do
